@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC
+"-//Hibernate/Hibernate Mapping DTD//EN"
+"http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+<hibernate-mapping>
+    <class
+        name="com.ettrema.tutorial.objects.Department"
+        table="DEPARTMENTS">
+            <id
+                name="id"
+                column="DEPT_ID">
+                <generator class="increment"/>
+            </id>
+            <property name="Name" column="DEPT_NAME"/> 
+    </class>
+    
+    <class
+        name="com.ettrema.tutorial.objects.Document"
+        table="DOCUMENTS">
+            <id
+                name="id"
+                column="DOC_ID">
+                <generator class="increment"/>
+            </id>
+            <property name="FileName" column="DOC_NAME"/> 
+            <property name="DeptName" column="DEPT_NAME"/> 
+            <property name="content"  type="binary" length="1000000000" column="CONTENT"/>   
+    </class>
+    
+</hibernate-mapping>
