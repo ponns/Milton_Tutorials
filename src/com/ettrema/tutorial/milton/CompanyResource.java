@@ -96,15 +96,19 @@ public class CompanyResource implements PropFindableResource,
 
 	@Override
 	public CollectionResource createCollection(String name)
-			throws NotAuthorizedException, ConflictException {
-		// TODO Auto-generated method stub
+			throws NotAuthorizedException, ConflictException { 
+		//Begin the Hibernate transaction
 		Transaction transaction = session.beginTransaction();
-		
+		 
+		//Create the Criteria with the conditional Expression to get the 
+		//Department details from Database
 		Criteria crit = session.createCriteria(Department.class);
 		crit.add(Expression.eq("Name", name));
+		List list = crit.list();
 		
-		List list = crit.list(); 
+		// Check whether Department already exists
 		if( list == null || list.size() == 0 ) {
+			// if not, Create a new one.
 			log.debug("Department {} not found. Hence creating it.", name);
 			Department dept = new Department(name); 
 			session.save(dept);
@@ -112,10 +116,10 @@ public class CompanyResource implements PropFindableResource,
 			DepartmentResource deptResource = new DepartmentResource(dept, session);
 			return deptResource;
 		} else { 
+			// If already present, Just the log the message
 			log.debug("Department {} already exists ", name);  
 			return null ;
-		}
-		
+		} 
 	}
 
 

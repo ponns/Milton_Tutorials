@@ -61,7 +61,7 @@ public class DepartmentResource implements
 
 	@Override
 	public String getName() {
-		// TODO Auto-generated method stub
+		// Name of the department resourcex
 		return department.getName();
 	}
 
@@ -104,6 +104,7 @@ public class DepartmentResource implements
 		transaction.commit(); 
 		log.debug("Department {} is deleted successfully.", department.getName());
 	}
+	
 	@Override
 	public void moveTo(CollectionResource parent, String newName)
 			throws ConflictException {
@@ -116,19 +117,29 @@ public class DepartmentResource implements
 		transaction.commit(); 
 		log.debug("");
 	}
+	
 	@Override
 	public Resource createNew(String fileName, InputStream in, Long length,
 			String contentType) throws IOException, ConflictException {
-		// TODO Auto-generated method stub
+		//Begin the Hibernate transaction
 		Transaction transaction = session.beginTransaction();
+		
+		// "Document" is a POJO bean to represent the Documents.
+		// Initialize the document Object and set the parameters 
+		// like filename, content
 		Document doc = new Document();
 		doc.setFileName(fileName);
 		doc.setDeptName(this.department.getName());
 		byte[] bFile = new byte[Integer.parseInt(length.toString())];
 		in.read(bFile);
 		doc.setContent(bFile); 
+		doc.setCreatedDate(new Date());
+		doc.setModifiedDate(new Date());
+		
+		//Save the document object and Commit the transaction
 		session.save(doc); 
 		transaction.commit(); 
+		
 		return new DocumentResource(doc,session);
 	}
 

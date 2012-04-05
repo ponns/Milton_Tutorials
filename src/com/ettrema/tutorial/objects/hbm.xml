@@ -24,6 +24,10 @@
             </id>
             <property name="FileName" column="DOC_NAME"/> 
             <property name="DeptName" column="DEPT_NAME"/> 
+            <property name="CreatedDate" type="timestamp" column="CREATED_DATE"/> 
+            <property name="ModifiedDate" type="timestamp" column="MODIFIED_DATE"/> 
+            <property name="Title" column="TITLE"/> 
+            <property name="KeyWords" column="KEYWORDS"/>  
             <property name="content"  type="binary" length="1000000000" column="CONTENT"/>   
     </class>
     
