@@ -1,6 +1,7 @@
 package com.ettrema.tutorial.milton;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 import org.hibernate.Criteria;
@@ -14,7 +15,9 @@ import org.slf4j.LoggerFactory;
 
 import com.bradmcevoy.common.Path;
 import com.bradmcevoy.http.Resource;
-import com.bradmcevoy.http.ResourceFactory;  
+import com.bradmcevoy.http.ResourceFactory;   
+import com.ettrema.http.fs.SimpleLockManager;
+import com.ettrema.http.fs.SimpleSecurityManager;
 import com.ettrema.tutorial.objects.Department;
 import com.ettrema.tutorial.objects.Document;
 
@@ -23,10 +26,21 @@ public class MyResourceFactory implements ResourceFactory{
 	
 	SessionFactory sessionFactory;
 	Session session;
+	SimpleSecurityManager securityManager;
+	SimpleLockManager lockManager;
 	
 	public MyResourceFactory(){
 		sessionFactory =  new Configuration().configure().buildSessionFactory(); 
 		session = sessionFactory.openSession();
+		
+		String sRealm = "http://localhost/milton" ;
+		HashMap<String, String> users = new HashMap<String, String>(); 
+		// Add UserIds and passwords. You can write your own logic to 
+		// create the userid/password lists.
+		users.put("test", "test"); 
+		securityManager = new SimpleSecurityManager(sRealm, users);
+		
+		lockManager = new SimpleLockManager(); 
 	}
 	
 	@Override
@@ -128,7 +142,7 @@ public class MyResourceFactory implements ResourceFactory{
 		} else { 
 			log.debug("{} Documents found for  department {}",  list.size(),deptName);
 			for(Object o: list ){
-				docs.add(  new DocumentResource((Document)o,session));
+				docs.add(  new DocumentResource((Document)o,session, this));
 			} 
 		}
 		
@@ -154,7 +168,7 @@ public class MyResourceFactory implements ResourceFactory{
 		} else {
 			Document doc = (Document) list.get(0);
 			log.debug("Document {} found: " + doc.getFileName());
-			docResource = new DocumentResource(doc, session);
+			docResource = new DocumentResource(doc, session, this);
 		}
 		
 		//transaction.commit();
@@ -163,4 +177,12 @@ public class MyResourceFactory implements ResourceFactory{
 		return docResource;
 	}
 
+	public SimpleLockManager getLockManager(){
+		return this.lockManager ;
+	}
+
+	public SimpleSecurityManager getSecurityManager(){
+		return this.securityManager ;
+	}
+	
 }

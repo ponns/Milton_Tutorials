@@ -13,13 +13,13 @@ import org.slf4j.LoggerFactory;
 
 import com.bradmcevoy.http.*; 
 import com.bradmcevoy.http.Request.Method; 
-import com.bradmcevoy.http.exceptions.ConflictException;
+import com.bradmcevoy.http.exceptions.ConflictException; 
 import com.ettrema.tutorial.objects.Department;
 import com.ettrema.tutorial.objects.Document;
 
 public class DepartmentResource implements 
 		PropFindableResource, CollectionResource, DeletableResource,
-		PutableResource, MoveableResource {
+		PutableResource, MoveableResource{
  
 	private Logger log = LoggerFactory.getLogger(DepartmentResource.class);
 	Department department;
@@ -38,13 +38,15 @@ public class DepartmentResource implements
 	}
 	   
 	@Override
-	public Object authenticate(String user, String arg1) { 
+	public Object authenticate(String user, String arg1) {
+		// always return
 		return user;
 	}
 
 	@Override
-	public boolean authorise(Request arg0, Method arg1, Auth arg2) { 
-		return true;
+	public boolean authorise(Request arg0, Method arg1, Auth auth) {
+		// always allow
+		return true;	 
 	}
 
 	@Override
@@ -135,12 +137,14 @@ public class DepartmentResource implements
 		doc.setContent(bFile); 
 		doc.setCreatedDate(new Date());
 		doc.setModifiedDate(new Date());
+		//TODO remove this. added for testing purpose
+		doc.setTitle("Default title");
 		
 		//Save the document object and Commit the transaction
 		session.save(doc); 
 		transaction.commit(); 
 		
-		return new DocumentResource(doc,session);
-	}
-
+		return new DocumentResource(doc,session, null);
+	} 
+	 
 }

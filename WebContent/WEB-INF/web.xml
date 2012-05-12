@@ -9,6 +9,11 @@
             <param-name>resource.factory.class</param-name>
             <param-value>com.ettrema.tutorial.milton.MyResourceFactory</param-value>
         </init-param>
+        <init-param>
+            <param-name>filter_0</param-name>
+            <param-value>com.bradmcevoy.http.DebugFilter</param-value>
+        </init-param>
+        
 <!--
 To disable digest authentication uncomment the following. To completely disable
 all authentication provide an empty value. If this init-param is missing milton
@@ -25,10 +30,7 @@ will default to basic and digest authentication.
         </init-param>    
 <!-- Uncomment the following filter to enable request and response logging to your user.home-->
 
-        <init-param>
-            <param-name>filter_0</param-name>
-            <param-value>com.bradmcevoy.http.DebugFilter</param-value>
-        </init-param>
+        
 		<load-on-startup>0</load-on-startup>
     </servlet>
     

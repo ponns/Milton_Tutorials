@@ -41,15 +41,15 @@ public class CompanyResource implements PropFindableResource,
 	}
 
 	@Override
-	public Object authenticate(String user, String arg1) {
+	public Object authenticate(String user, String password) {
 		// always allow
 		return user;
 	}
 
 	@Override
-	public boolean authorise(Request arg0, Method arg1, Auth arg2) {
+	public boolean authorise(Request arg0, Method arg1, Auth auth) {
 		// Always return true so that no authorization required.
-		return true;
+		return true;	
 	}
 
 	@Override

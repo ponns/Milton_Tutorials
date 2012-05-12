@@ -31,6 +31,8 @@ import com.bradmcevoy.property.MultiNamespaceCustomPropertyResource;
 import com.bradmcevoy.property.PropertySource;
 import com.bradmcevoy.property.PropertySource.PropertyAccessibility;
 import com.bradmcevoy.property.PropertySource.PropertyMetaData;
+import com.ettrema.http.fs.SimpleLockManager;
+import com.ettrema.http.fs.SimpleSecurityManager;
 import com.ettrema.tutorial.objects.Department;
 import com.ettrema.tutorial.objects.Document;
 
@@ -41,15 +43,19 @@ public class DocumentResource implements GetableResource,
 
 	//Initialize the Logger object
 	private Logger log = LoggerFactory.getLogger(DocumentResource.class);
-	Session session;
+	Session session; 
 	Document doc;
-
-	//Current Lock object - holds the details of the current lock
-	CurrentLock lock;
-	 
+	MyResourceFactory resourceFactory;
+  	 
 	public DocumentResource(Document doc, Session session){  
 		this.doc = doc ;
 		this.session = session;
+	}
+	
+	public DocumentResource(Document doc, Session session, MyResourceFactory resourceFactory ){  
+		this.doc = doc ;
+		this.session = session;
+		this.resourceFactory = resourceFactory ;
 	}
 	
 	@Override
@@ -67,6 +73,35 @@ public class DocumentResource implements GetableResource,
 	public Long getMaxAgeSeconds(Auth arg0) { 
 		return null;
 	}
+	
+	// false -  not locked recursively and hence it can be deleted.
+	// true - this resource or child resource is locked. Hence delete request 
+	//    should not be completed.
+	public boolean isLockedOutRecursive(Request request){
+		if (request == null ){
+			return false;
+		} 
+		LockToken token = this.getCurrentLock();
+		if( token != null ) {
+			Auth auth = request.getAuthorization();
+			String lockedByUser = token.info.lockedByUser;
+			if( lockedByUser == null ) {
+				log.warn( "Resource is locked with a null user. Ignoring the lock" );
+				return false;
+			} else if( !lockedByUser.equals( auth.getUser() ) ) {
+				log.info( "fail: lock owned by: " + lockedByUser + " not by " + auth.getUser() );
+				String value = request.getIfHeader();
+				if( value != null ) {
+					if( value.contains( "opaquelocktoken:" + token.tokenId + ">" ) ) {
+						log.info( "Contained valid token. so is unlocked" );
+						return false;
+					}
+				}
+				return true; 
+			}
+		}
+		return false;
+	}
 
 	@Override
 	public void sendContent(OutputStream out, Range arg1,
@@ -77,15 +112,18 @@ public class DocumentResource implements GetableResource,
 	}
 
 	@Override
-	public Object authenticate(String user, String arg1) {
+	public Object authenticate(String user, String pwd) {
 		// always return
-		return user;
+		return resourceFactory.getSecurityManager().authenticate(user, pwd);
 	}
 
 	@Override
-	public boolean authorise(Request arg0, Method arg1, Auth arg2) {
-		// always allow
-		return true;
+	public boolean authorise(Request arg0, Method arg1, Auth auth) {
+		if (auth == null){
+			return false;
+		}else{
+			return true;	
+		} 
 	}
 
 	@Override
@@ -108,14 +146,13 @@ public class DocumentResource implements GetableResource,
 
 	@Override
 	public String getRealm() {
-		// TODO Auto-generated method stub
-		return null;
+		return resourceFactory.getSecurityManager().getRealm("");
 	}
 
 	@Override
 	public String getUniqueId() {
-		// TODO Auto-generated method stub
-		return null;
+		// make sure to return the unique name to identify the resource
+		return this.doc.getFileName();
 	}
 
 	@Override
@@ -188,67 +225,22 @@ public class DocumentResource implements GetableResource,
 
 	@Override
 	public LockToken getCurrentLock() {
-		// return the current lock token 
-		if( this.lock == null ) return null;
-		LockToken token = new LockToken();
-		token.info = this.lock.lockInfo;
-		token.timeout = new LockTimeout( this.lock.seconds );
-		token.tokenId = this.lock.lockId;
-
-		return token;
-	
+		return this.resourceFactory.getLockManager().getCurrentToken(this);
 	}
 
 	@Override
 	public LockResult lock(LockTimeout timeout, LockInfo lockInfo) throws NotAuthorizedException {
-		
-		LockTimeout.DateAndSeconds lockedUntil = timeout.getLockedUntil( 60l, 3600l );
-
-		// create a new lock
-		this.lock = new CurrentLock( lockedUntil.date, UUID.randomUUID().toString(), lockedUntil.seconds, lockInfo );
-
-		LockToken token = new LockToken();
-		token.info = lockInfo;
-		token.timeout = new LockTimeout( lockedUntil.seconds );
-		token.tokenId = this.lock.lockId;
-
-		return LockResult.success( token );	
+		return this.resourceFactory.getLockManager().lock(timeout, lockInfo, this); 
 	}
 
 	@Override
 	public LockResult refreshLock(String token) throws NotAuthorizedException {
-		
-		// reset the current token
-		if( lock == null )
-			throw new RuntimeException( "not locked" );
-		if( !lock.lockId.equals( token ) )
-		    throw new RuntimeException( "invalid lock id" );
-		this.lock = lock.refresh(); 
-		
-		//create the lock token with new details
-		LockToken lockToken = new LockToken();
-		lockToken.info = lock.lockInfo;
-		lockToken.timeout = new LockTimeout( lock.seconds );
-		lockToken.tokenId = lock.lockId;
-
-		return LockResult.success( lockToken );
- 
+		 return this.resourceFactory.getLockManager().refresh(token, this); 
 	}
 
 	@Override
 	public void unlock(String tokenId) throws NotAuthorizedException {
-		// unlock
-		if( lock == null ) {
-		    log.warn( "request to unlock not locked resource" );
-		    return;
-		}
-		
-		if( !lock.lockId.equals( tokenId ) ){
-			log.warn( "Invalid Lock Token" );
-			throw new RuntimeException( "Invalid lock token" );
-		}
-		    
-		this.lock = null;
+		this.resourceFactory.getLockManager().unlock(tokenId, this);
 	}
 
 	@Override
@@ -258,32 +250,12 @@ public class DocumentResource implements GetableResource,
 		// TODO what is the necessity for implementing  PropPatchableResource class ?
 		
 	}
-  
-	class CurrentLock {
-
-	    final Date lockedUntil;
-	    final String lockId;
-	    final long seconds;
-	    final LockInfo lockInfo;
-
-	    public CurrentLock( Date lockedUntil, String lockId, long seconds, LockInfo lockInfo ) {
-	        this.lockedUntil = lockedUntil;
-	        this.lockId = lockId;
-	        this.seconds = seconds;
-	        this.lockInfo = lockInfo;
-	    }
-
-	    CurrentLock refresh() {
-	        Date dt = Utils.addSeconds( Utils.now(), seconds );
-	        return new CurrentLock( dt, lockId, seconds, lockInfo );
-	    }
-	}
-
+    
 	// return the all property names as list
 	@Override
 	public List<QName> getAllPropertyNames() {
 		// Since namespace is blank here. Just the local part of the property name
-		
+		log.debug("Inside getallprop names...");
 		List<QName> localPropNames = new ArrayList<QName>();
 		Iterator<?> i = this.doc.getAllProperties().entrySet().iterator();
 		
@@ -292,19 +264,21 @@ public class DocumentResource implements GetableResource,
 			localPropNames.add( new QName(pair.getKey()) );
 		}
 		 
+		log.debug("localPropNames length:" + localPropNames.size());
 		return localPropNames;
 	}
 
 	// return the value of the property
 	@Override
 	public Object getProperty(QName name) {
+		log.debug("Get the specific property");
 		return this.doc.getAllProperties().get(name.getLocalPart());
 	}
 
 	// return the metadata of the property
 	@Override
 	public PropertyMetaData getPropertyMetaData(QName name) {
-		
+		log.debug("Get the property metadata");
 		//check whether property is present
 		if (this.doc.getAllProperties().containsKey(name.getLocalPart()) ){
 			
@@ -333,5 +307,6 @@ public class DocumentResource implements GetableResource,
 		log.debug("Property {} updated Successfully", name.getLocalPart() );
 		
 	}
+ 
 
 }
